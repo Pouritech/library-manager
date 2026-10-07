@@ -1,5 +1,9 @@
 import json
 import os
+from datetime import date, timedelta
+
+FILE_NAME = "books.json"
+LOAN_DAYS = 14
 
 FILE_NAME = "books.json"
 
@@ -25,12 +29,15 @@ def add_book(books):
         print("Title and author cannot be empty.")
         return
     book_id = max([b["id"] for b in books], default=0) + 1
-    books.append({
-        "id": book_id,
-        "title": title,
-        "author": author,
-        "available": True,
-    })
+    books.append(
+        {
+            "id": book_id,
+            "title": title,
+            "author": author,
+            "available": True,
+            "due_date": None,
+        }
+    )
     save_books(books)
     print(f"Book added with ID {book_id}.")
 
@@ -40,16 +47,20 @@ def list_books(books):
         print("No books in the library.")
         return
     print("\nID | Title | Author | Status")
-    print("-" * 40)
+    print("-" * 50)
     for b in books:
-        status = "Available" if b["available"] else "Borrowed"
+        if b["available"]:
+            status = "Available"
+        else:
+            status = f'Borrowed (due {b.get("due_date")})'
         print(f'{b["id"]} | {b["title"]} | {b["author"]} | {status}')
 
 
 def search_books(books):
     keyword = input("Search by title or author: ").strip().lower()
     results = [
-        b for b in books
+        b
+        for b in books
         if keyword in b["title"].lower() or keyword in b["author"].lower()
     ]
     if not results:
@@ -68,6 +79,7 @@ def borrow_book(books):
         if b["id"] == book_id:
             if b["available"]:
                 b["available"] = False
+                b["due_date"] = (date.today() + timedelta(days=LOAN_DAYS)).isoformat()
                 save_books(books)
                 print("Book borrowed.")
             else:
@@ -86,6 +98,7 @@ def return_book(books):
         if b["id"] == book_id:
             if not b["available"]:
                 b["available"] = True
+                b["due_date"] = None
                 save_books(books)
                 print("Book returned.")
             else:
@@ -109,6 +122,21 @@ def delete_book(books):
     print("Book not found.")
 
 
+def list_overdue(books):
+    today = date.today().isoformat()
+    overdue = [
+        b
+        for b in books
+        if not b["available"] and b.get("due_date") and b["due_date"] < today
+    ]
+    if not overdue:
+        print("No overdue books.")
+        return
+    print("\nOverdue books:")
+    for b in overdue:
+        print(f'{b["id"]} | {b["title"]} | due {b["due_date"]}')
+
+
 def main():
     books = load_books()
     while True:
@@ -119,6 +147,7 @@ def main():
         print("4. Borrow book")
         print("5. Return book")
         print("6. Delete book")
+        print("7. Show overdue books")
         print("0. Exit")
         choice = input("Choose an option: ").strip()
 
@@ -136,6 +165,8 @@ def main():
             delete_book(books)
         elif choice == "0":
             print("Goodbye!")
+        elif choice == "7":
+            list_overdue(books)    
             break
         else:
             print("Invalid option.")
